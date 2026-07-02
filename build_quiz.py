@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Generate quiz.html with authors grouped by 组别."""
-import json, os
+import json, os, sys
+sys.stdout.reconfigure(encoding='utf-8')
 
-BASE = "/Users/moliex/projects/eyetest"
-with open(os.path.join(BASE, 'questions.json')) as f:
+BASE = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(BASE, 'questions.json'), encoding='utf-8') as f:
     questions = json.load(f)
 
 # Group mapping
@@ -493,7 +494,7 @@ with open(outpath, 'w', encoding='utf-8') as f:
     f.write(html)
 
 size = os.path.getsize(outpath) / 1024
-print(f"✅ quiz.html written ({size:.0f} KB, {len(clean)} questions)")
+print(f"quiz.html written ({size:.0f} KB, {len(clean)} questions)")
 # Print groups
 for g in sorted_groups:
     label = GROUP_LABEL.get(g, g)
