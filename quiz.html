@@ -216,10 +216,12 @@ const S = {
   shuffle: false,
   history: {},
   starred: {},
+  slashed: {},
 
   init() {
     try{this.history=JSON.parse(localStorage.eyetest_h||'{}')}catch(e){}
     try{this.starred=JSON.parse(localStorage.eyetest_s||'{}')}catch(e){}
+    try{this.slashed=JSON.parse(localStorage.eyetest_z||'{}')}catch(e){}
 
     // build author dropdown with optgroups
     const sel=document.getElementById('selAuthor');
@@ -245,7 +247,7 @@ const S = {
     this.kbd();
   },
 
-  save(){localStorage.eyetest_h=JSON.stringify(this.history);localStorage.eyetest_s=JSON.stringify(this.starred)},
+  save(){localStorage.eyetest_h=JSON.stringify(this.history);localStorage.eyetest_s=JSON.stringify(this.starred);localStorage.eyetest_z=JSON.stringify(this.slashed)},
 
   apply(){
     let pool=QS.map((q,i)=>({...q,orig:i}));
@@ -324,6 +326,7 @@ const S = {
             下一题 <kbd>Space</kbd>
           </button>
           <button class="act" onclick="S.toggleStar(${q.orig})">${star?'⭐':'☆'} 收藏 <kbd>S</kbd></button>
+          <button class="act" style="color:var(--danger);border-color:var(--danger)" onclick="S.slash(${q.orig})">⚔️ 斩 <kbd>Z</kbd></button>
         </div>
       </div>`;
     this.answered=false;
@@ -390,6 +393,39 @@ const S = {
     if(this.pool.length&&this.pool[this.idx].orig===orig)this.render();
   },
 
+  slash(orig){
+    const q=this.pool[this.idx];
+    if(!confirm(`确定斩除「${q.q.slice(0,20)}…」？\n将加入待删队列，执行删除命令后永久移除。`))return;
+    this.slashed[orig]=QS[orig].num;
+    this.save();
+    this.pool.splice(this.idx,1);
+    if(this.idx>=this.pool.length)this.idx=Math.max(0,this.pool.length-1);
+    this.updateSlashPanel();
+    if(this.pool.length)this.render();
+    else this.renderEmpty();
+    this.toast('⚔️ 已加入待斩队列',false);
+  },
+
+  updateSlashPanel(){
+    const nums=Object.values(this.slashed).sort((a,b)=>a-b);
+    const panel=document.getElementById('slashPanel');
+    if(!nums.length){panel.style.display='none';return;}
+    panel.style.display='flex';
+    document.getElementById('slashCount').textContent=nums.length;
+    document.getElementById('slashIds').textContent=nums.join(' ');
+  },
+
+  copySlashCmd(){
+    const nums=Object.values(this.slashed).sort((a,b)=>a-b).join(' ');
+    const cmd=`python delete_questions.py ${nums}`;
+    navigator.clipboard.writeText(cmd).then(()=>this.toast('命令已复制！',true));
+  },
+
+  clearSlash(){
+    if(!confirm('撤销所有待斩记录？'))return;
+    this.slashed={};this.save();this.updateSlashPanel();
+  },
+
   reset(){
     if(!confirm('清除所有做题记录？不可撤销。'))return;
     this.history={};this.starred={};this.save();this.apply();
@@ -426,6 +462,7 @@ const S = {
       if(k===' '||k==='ENTER'||k==='ARROWRIGHT'){e.preventDefault();if(this.answered)this.next()}
       if(k==='M')this.setMode(this.mode==='study'?'speed':'study');
       if(k==='S'&&this.pool.length){const q=this.pool[this.idx];this.toggleStar(q.orig)}
+      if(k==='Z'&&this.pool.length){this.slash(this.pool[this.idx].orig)}
       if(k==='ARROWLEFT'&&this.idx>0){this.idx--;this.render()}
     });
   },
@@ -440,6 +477,17 @@ const S = {
 };
 
 S.init();
+S.updateSlashPanel();
 </script>
+
+<!-- 斩除浮动面板 -->
+<div id="slashPanel" style="display:none;position:fixed;bottom:1.2rem;right:1.2rem;background:#c0392b;color:#fff;padding:.75rem 1rem;border-radius:.6rem;font-size:.85rem;z-index:999;max-width:320px;box-shadow:0 4px 16px rgba(0,0,0,.4);flex-direction:column;gap:.5rem">
+  <div style="font-weight:700">⚔️ 待斩 <span id="slashCount">0</span> 题</div>
+  <div style="font-size:.75rem;opacity:.8;word-break:break-all">题号: <span id="slashIds"></span></div>
+  <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+    <button onclick="S.copySlashCmd()" style="background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.5);color:#fff;padding:.3rem .7rem;border-radius:.3rem;cursor:pointer;font-size:.8rem">📋 复制删除命令</button>
+    <button onclick="S.clearSlash()" style="background:none;border:1px solid rgba(255,255,255,.3);color:rgba(255,255,255,.75);padding:.3rem .7rem;border-radius:.3rem;cursor:pointer;font-size:.8rem">撤销</button>
+  </div>
+</div>
 </body>
 </html>
